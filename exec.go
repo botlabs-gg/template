@@ -28,15 +28,18 @@ func initMaxExecDepth() int {
 	return 100000
 }
 
+const MaxOps = 10000
+
 // state represents the state of an execution. It's not part of the
 // template so that multiple executions of the same template
 // can execute in parallel.
 type state struct {
-	tmpl  *Template
-	wr    io.Writer
-	node  parse.Node // current node, for errors
-	vars  []variable // push-down stack of variable values.
-	depth int        // the height of the stack of executing templates.
+	tmpl       *Template
+	wr         io.Writer
+	node       parse.Node // current node, for errors
+	vars       []variable // push-down stack of variable values.
+	depth      int        // the height of the stack of executing templates.
+	operations int
 }
 
 // variable holds the dynamic value of a variable such as $, $x etc.
@@ -332,6 +335,7 @@ func isTrue(val reflect.Value) (truth, ok bool) {
 }
 
 func (s *state) walkRange(dot reflect.Value, r *parse.RangeNode) {
+	s.incrOPs(1)
 	s.at(r)
 	defer s.pop(s.mark())
 	val, _ := indirect(s.evalPipeline(dot, r.Pipe))
@@ -641,6 +645,8 @@ var (
 // it looks just like a function call. The arg list, if non-nil, includes (in the manner of the shell), arg[0]
 // as the function itself.
 func (s *state) evalCall(dot, fun reflect.Value, node parse.Node, name string, args []parse.Node, final reflect.Value) reflect.Value {
+	s.incrOPs(10)
+
 	if args != nil {
 		args = args[1:] // Zeroth arg is function name/node; not passed to function.
 	}
@@ -933,6 +939,13 @@ func (s *state) printValue(n parse.Node, v reflect.Value) {
 	_, err := fmt.Fprint(s.wr, iface)
 	if err != nil {
 		s.writeError(err)
+	}
+}
+
+func (s *state) incrOPs(num int) {
+	s.operations += num
+	if s.operations > MaxOps {
+		s.errorf("exceeded max operations (%d/%d)", s.operations, MaxOps)
 	}
 }
 
