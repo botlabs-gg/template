@@ -28,8 +28,6 @@ func initMaxExecDepth() int {
 	return 100000
 }
 
-const MaxOps = 10000
-
 // state represents the state of an execution. It's not part of the
 // template so that multiple executions of the same template
 // can execute in parallel.
@@ -336,12 +334,15 @@ func isTrue(val reflect.Value) (truth, ok bool) {
 
 func (s *state) walkRange(dot reflect.Value, r *parse.RangeNode) {
 	s.incrOPs(1)
+
 	s.at(r)
 	defer s.pop(s.mark())
 	val, _ := indirect(s.evalPipeline(dot, r.Pipe))
 	// mark top of stack before any variables in the body are pushed.
 	mark := s.mark()
 	oneIteration := func(index, elem reflect.Value) {
+		s.incrOPs(1)
+
 		// Set top var (lexically the second if there are two) to the element.
 		if len(r.Pipe.Decl) > 0 {
 			s.setTopVar(1, elem)
@@ -943,9 +944,13 @@ func (s *state) printValue(n parse.Node, v reflect.Value) {
 }
 
 func (s *state) incrOPs(num int) {
+	if s.tmpl.maxOps == 0 {
+		return
+	}
+
 	s.operations += num
-	if s.operations > MaxOps {
-		s.errorf("exceeded max operations (%d/%d)", s.operations, MaxOps)
+	if s.operations > s.tmpl.maxOps {
+		s.errorf("exceeded max operations (%d/%d)", s.operations, s.tmpl.maxOps)
 	}
 }
 
