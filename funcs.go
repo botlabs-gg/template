@@ -347,7 +347,11 @@ const (
 )
 
 func basicKind(v reflect.Value) (kind, error) {
-	switch v.Kind() {
+	return basicKindT(v.Kind())
+}
+
+func basicKindT(k reflect.Kind) (kind, error) {
+	switch k {
 	case reflect.Bool:
 		return boolKind, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:

@@ -22,6 +22,7 @@ type T struct {
 	// Basics
 	True        bool
 	I           int
+	I64         int64
 	U16         uint16
 	X           string
 	FloatZero   float64
@@ -117,6 +118,7 @@ var siVal = I(S{"a", "b"})
 var tVal = &T{
 	True:   true,
 	I:      17,
+	I64:    64,
 	U16:    16,
 	X:      "x",
 	U:      &U{"v"},
@@ -262,6 +264,7 @@ var execTests = []execTest{
 	{"empty", "", "", nil, true},
 	{"text", "some text", "some text", nil, true},
 	{"nil action", "{{nil}}", "", nil, false},
+	{"add int int64", "{{add .I .I64}}", "81", tVal, true},
 
 	// Ideal constants.
 	{"ideal int", "{{typeOf 3}}", "int", 0, true},

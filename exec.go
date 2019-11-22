@@ -760,6 +760,47 @@ func (s *state) validateType(value reflect.Value, typ reflect.Type) reflect.Valu
 		case reflect.PtrTo(value.Type()).AssignableTo(typ) && value.CanAddr():
 			value = value.Addr()
 		default:
+			kind1, _ := basicKindT(typ.Kind())
+			kind2, _ := basicKindT(value.Kind())
+
+			if kind1 == intKind && kind2 == intKind {
+				vc := value.Int()
+				switch typ.Kind() {
+				case reflect.Int:
+					return reflect.ValueOf(int(vc))
+				case reflect.Int8:
+					return reflect.ValueOf(int8(vc))
+				case reflect.Int16:
+					return reflect.ValueOf(int16(vc))
+				case reflect.Int32:
+					return reflect.ValueOf(int32(vc))
+				case reflect.Int64:
+					return reflect.ValueOf(vc)
+				}
+			} else if kind1 == uintKind && kind2 == uintKind {
+				vc := value.Uint()
+				switch typ.Kind() {
+				case reflect.Uint:
+					return reflect.ValueOf(uint(vc))
+				case reflect.Uint8:
+					return reflect.ValueOf(uint8(vc))
+				case reflect.Uint16:
+					return reflect.ValueOf(uint16(vc))
+				case reflect.Uint32:
+					return reflect.ValueOf(uint32(vc))
+				case reflect.Uint64:
+					return reflect.ValueOf(uint64(vc))
+				}
+			} else if kind1 == floatKind && kind2 == floatKind {
+				vc := value.Float()
+				switch typ.Kind() {
+				case reflect.Float64:
+					return reflect.ValueOf(float64(vc))
+				case reflect.Float32:
+					return reflect.ValueOf(float32(vc))
+				}
+			}
+
 			s.errorf("wrong type for value; expected %s; got %s", typ, value.Type())
 		}
 	}
