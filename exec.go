@@ -417,6 +417,7 @@ func (s *state) walkTemplate(dot reflect.Value, t *parse.TemplateNode) {
 	newState.parent = s
 	newState.depth++
 	newState.tmpl = tmpl
+	newState.tmpl.maxOps = s.tmpl.maxOps
 	// No dynamic scoping: template invocations inherit no variables.
 	newState.vars = []variable{{"$", dot}}
 	newState.walk(dot, tmpl.Root)
