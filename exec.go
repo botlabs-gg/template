@@ -7,12 +7,13 @@ package template
 import (
 	"bytes"
 	"fmt"
-	"github.com/jonas747/template/parse"
 	"io"
 	"reflect"
 	"runtime"
 	"sort"
 	"strings"
+
+	"github.com/jonas747/template/parse"
 )
 
 // maxExecDepth specifies the maximum stack depth of templates within
@@ -38,6 +39,8 @@ type state struct {
 	vars       []variable // push-down stack of variable values.
 	depth      int        // the height of the stack of executing templates.
 	operations int
+
+	parent *state
 }
 
 // variable holds the dynamic value of a variable such as $, $x etc.
@@ -409,6 +412,7 @@ func (s *state) walkTemplate(dot reflect.Value, t *parse.TemplateNode) {
 	// Variables declared by the pipeline persist.
 	dot = s.evalPipeline(dot, t.Pipe)
 	newState := *s
+	newState.parent = s
 	newState.depth++
 	newState.tmpl = tmpl
 	// No dynamic scoping: template invocations inherit no variables.
@@ -986,6 +990,11 @@ func (s *state) printValue(n parse.Node, v reflect.Value) {
 
 func (s *state) incrOPs(num int) {
 	if s.tmpl.maxOps == 0 {
+		return
+	}
+
+	if s.parent != nil {
+		s.parent.incrOPs(num)
 		return
 	}
 
