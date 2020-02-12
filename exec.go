@@ -402,6 +402,8 @@ func (s *state) walkRange(dot reflect.Value, r *parse.RangeNode) {
 
 func (s *state) walkTemplate(dot reflect.Value, t *parse.TemplateNode) {
 	s.at(t)
+	s.incrOPs(100)
+
 	tmpl := s.tmpl.tmpl[t.Name]
 	if tmpl == nil {
 		s.errorf("template %q not defined", t.Name)
