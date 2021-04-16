@@ -29,6 +29,7 @@ type Tree struct {
 	peekCount int
 	vars      []string // variables defined at the moment.
 	treeSet   map[string]*Tree
+	loopDepth int
 }
 
 // Copy returns a copy of the Tree. Any parsing state is discarded.
@@ -265,6 +266,8 @@ func IsEmptyTree(n Node) bool {
 	case *TryNode:
 	case *TextNode:
 		return len(bytes.TrimSpace(n.Text)) == 0
+	case *BreakNode:
+	case *ContinueNode:
 	case *WithNode:
 	default:
 		panic("unknown node: " + n.String())
@@ -358,10 +361,14 @@ func (t *Tree) textOrAction() Node {
 // First word could be a keyword such as range.
 func (t *Tree) action() (n Node) {
 	switch token := t.nextNonSpace(); token.typ {
+	case itemBreak:
+		return t.breakControl()
 	case itemBlock:
 		return t.blockControl()
 	case itemCatch:
 		return t.catchControl()
+	case itemContinue:
+		return t.continueControl()
 	case itemElse:
 		return t.elseControl()
 	case itemEnd:
@@ -471,7 +478,13 @@ func (t *Tree) parseControl(allowElseIf bool, context string) (pos Pos, line int
 	defer t.popVars(len(t.vars))
 	pipe = t.pipeline(context)
 	var next Node
+	if context == "range" || context == "while" {
+		t.loopDepth++
+	}
 	list, next = t.itemList()
+	if context == "range" || context == "while" {
+		t.loopDepth--
+	}
 	switch next.Type() {
 	case nodeEnd: //done
 	case nodeElse:
@@ -555,6 +568,16 @@ func (t *Tree) elseControl() Node {
 	return t.newElse(token.pos, token.line)
 }
 
+// Break:
+// 	{{break}}
+// Break keyword is past.
+func (t *Tree) breakControl() Node {
+	if t.loopDepth == 0 {
+		t.errorf("unexpected break outside of loop")
+	}
+	return t.newBreak(t.expect(itemRightDelim, "break").pos)
+}
+
 // Block:
 //	{{block stringValue pipeline}}
 // Block keyword is past.
@@ -608,6 +631,16 @@ func (t *Tree) tryControl() Node {
 	}
 
 	return t.newTry(token.pos, list, catchList)
+}
+
+// Continue
+// 	{{continue}}
+// Continue keyword is past.
+func (t *Tree) continueControl() Node {
+	if t.loopDepth == 0 {
+		t.errorf("unexpected continue outside of range")
+	}
+	return t.newContinue(t.expect(itemRightDelim, "continue").pos)
 }
 
 // Template:
