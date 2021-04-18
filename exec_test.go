@@ -442,6 +442,14 @@ var execTests = []execTest{
 	{"if else if", "{{if false}}FALSE{{else if true}}TRUE{{end}}", "TRUE", tVal, true},
 	{"if else chain", "{{if eq 1 3}}1{{else if eq 2 3}}2{{else if eq 3 3}}3{{end}}", "3", tVal, true},
 
+	// Try.
+	{"simple try catch", "{{try}}{{.MyError true}}{{catch}}{{end}}", "", tVal, true},
+	{"error in catch", "{{try}}{{.MyError true}}{{catch}}{{$.MyError true}}{{end}}", "", tVal, false},
+	{"try catch use error", "{{try}}{{.MyError true}}{{catch}}{{.}}{{end}}", "my error", tVal, true},
+	{"nested try catch", "{{try}}{{.MyError true}}{{catch}}{{try}}{{$.MyError true}}{{catch}}abc{{end}}{{end}}", "abc", tVal, true},
+	// should not catch panics.
+	{"try catch with panic", "{{try}}{{makemap 1}}{{catch}}x{{end}}", "", tVal, false},
+
 	// Print etc.
 	{"print", `{{print "hello, print"}}`, "hello, print", tVal, true},
 	{"print 123", `{{print 1 2 3}}`, "1 2 3", tVal, true},
