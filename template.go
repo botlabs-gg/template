@@ -5,9 +5,10 @@
 package template
 
 import (
-	"github.com/jonas747/template/parse"
 	"reflect"
 	"sync"
+
+	"github.com/jonas747/template/parse"
 )
 
 // common holds the information shared by related templates.
@@ -200,7 +201,7 @@ func (t *Template) Lookup(name string) *Template {
 func (t *Template) Parse(text string) (*Template, error) {
 	t.init()
 	t.muFuncs.RLock()
-	trees, err := parse.Parse(t.name, text, t.leftDelim, t.rightDelim, t.parseFuncs, builtins)
+	trees, err := parse.Parse(t.name, text, t.leftDelim, t.rightDelim, t.parseFuncs, builtins())
 	t.muFuncs.RUnlock()
 	if err != nil {
 		return nil, err

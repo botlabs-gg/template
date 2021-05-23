@@ -59,8 +59,10 @@ type T struct {
 	Empty3 interface{}
 	Empty4 interface{}
 	// Non-empty interfaces.
-	NonEmptyInterface    I
-	NonEmptyInterfacePtS *I
+	NonEmptyInterface         I
+	NonEmptyInterfacePtS      *I
+	NonEmptyInterfaceNil      I
+	NonEmptyInterfaceTypedNil I
 	// Stringer.
 	Str fmt.Stringer
 	Err error
@@ -75,6 +77,7 @@ type T struct {
 	VariadicFuncInt func(int, ...string) string
 	NilOKFunc       func(*int) bool
 	ErrFunc         func() (string, error)
+	PanicFunc       func() string
 	// Template to test evaluation of templates.
 	Tmpl *Template
 	// Unexported field; cannot be accessed by template.
@@ -142,23 +145,25 @@ var tVal = &T{
 		{"one": 1, "two": 2},
 		{"eleven": 11, "twelve": 12},
 	},
-	Empty1:               3,
-	Empty2:               "empty2",
-	Empty3:               []int{7, 8},
-	Empty4:               &U{"UinEmpty"},
-	NonEmptyInterface:    &T{X: "x"},
-	NonEmptyInterfacePtS: &siVal,
-	Str:                  bytes.NewBuffer([]byte("foozle")),
-	Err:                  errors.New("erroozle"),
-	PI:                   newInt(23),
-	PS:                   newString("a string"),
-	PSI:                  newIntSlice(21, 22, 23),
-	BinaryFunc:           func(a, b string) string { return fmt.Sprintf("[%s=%s]", a, b) },
-	VariadicFunc:         func(s ...string) string { return fmt.Sprint("<", strings.Join(s, "+"), ">") },
-	VariadicFuncInt:      func(a int, s ...string) string { return fmt.Sprint(a, "=<", strings.Join(s, "+"), ">") },
-	NilOKFunc:            func(s *int) bool { return s == nil },
-	ErrFunc:              func() (string, error) { return "bla", nil },
-	Tmpl:                 Must(New("x").Parse("test template")), // "x" is the value of .X
+	Empty1:                    3,
+	Empty2:                    "empty2",
+	Empty3:                    []int{7, 8},
+	Empty4:                    &U{"UinEmpty"},
+	NonEmptyInterface:         &T{X: "x"},
+	NonEmptyInterfacePtS:      &siVal,
+	NonEmptyInterfaceTypedNil: (*T)(nil),
+	Str:                       bytes.NewBuffer([]byte("foozle")),
+	Err:                       errors.New("erroozle"),
+	PI:                        newInt(23),
+	PS:                        newString("a string"),
+	PSI:                       newIntSlice(21, 22, 23),
+	BinaryFunc:                func(a, b string) string { return fmt.Sprintf("[%s=%s]", a, b) },
+	VariadicFunc:              func(s ...string) string { return fmt.Sprint("<", strings.Join(s, "+"), ">") },
+	VariadicFuncInt:           func(a int, s ...string) string { return fmt.Sprint(a, "=<", strings.Join(s, "+"), ">") },
+	NilOKFunc:                 func(s *int) bool { return s == nil },
+	ErrFunc:                   func() (string, error) { return "bla", nil },
+	PanicFunc:                 func() string { panic("test panic") },
+	Tmpl:                      Must(New("x").Parse("test template")), // "x" is the value of .X
 }
 
 var tSliceOfNil = []*T{nil}
@@ -344,6 +349,12 @@ var execTests = []execTest{
 	{"field on interface", "{{.foo}}", "<no value>", nil, true},
 	{"field on parenthesized interface", "{{(.).foo}}", "<no value>", nil, true},
 
+	// Issue 31810: Parenthesized first element of pipeline with arguments.
+	// See also TestIssue31810.
+	{"unparenthesized non-function", "{{1 2}}", "", nil, false},
+	{"parenthesized non-function", "{{(1) 2}}", "", nil, false},
+	{"parenthesized non-function with no args", "{{(1)}}", "1", nil, true}, // This is fine.
+
 	// Method calls.
 	{".Method0", "-{{.Method0}}-", "-M0-", tVal, true},
 	{".Method1(1234)", "-{{.Method1 1234}}-", "-1234-", tVal, true},
@@ -366,6 +377,7 @@ var execTests = []execTest{
 	{".NilOKFunc not nil", "{{call .NilOKFunc .PI}}", "false", tVal, true},
 	{".NilOKFunc nil", "{{call .NilOKFunc nil}}", "true", tVal, true},
 	{"method on nil value from slice", "-{{range .}}{{.Method1 1234}}{{end}}-", "-1234-", tSliceOfNil, true},
+	{"method on typed nil interface value", "{{.NonEmptyInterfaceTypedNil.Method0}}", "M0", tVal, true},
 
 	// Function call builtin.
 	{".BinaryFunc", "{{call .BinaryFunc `1` `2`}}", "[1=2]", tVal, true},
@@ -410,6 +422,7 @@ var execTests = []execTest{
 	{"if true", "{{if true}}TRUE{{end}}", "TRUE", tVal, true},
 	{"if false", "{{if false}}TRUE{{else}}FALSE{{end}}", "FALSE", tVal, true},
 	{"if nil", "{{if nil}}TRUE{{end}}", "", tVal, false},
+	{"if on typed nil interface value", "{{if .NonEmptyInterfaceTypedNil}}TRUE{{ end }}", "", tVal, true},
 	{"if 1", "{{if 1}}NON-ZERO{{else}}ZERO{{end}}", "NON-ZERO", tVal, true},
 	{"if 0", "{{if 0}}NON-ZERO{{else}}ZERO{{end}}", "ZERO", tVal, true},
 	{"if 1.5", "{{if 1.5}}NON-ZERO{{else}}ZERO{{end}}", "NON-ZERO", tVal, true},
@@ -512,6 +525,7 @@ var execTests = []execTest{
 	{"with $x int", "{{with $x := .I}}{{$x}}{{end}}", "17", tVal, true},
 	{"with $x struct.U.V", "{{with $x := $}}{{$x.U.V}}{{end}}", "v", tVal, true},
 	{"with variable and action", "{{with $x := $}}{{$y := $.U.V}}{{$y}}{{end}}", "v", tVal, true},
+	{"with on typed nil interface value", "{{with .NonEmptyInterfaceTypedNil}}TRUE{{ end }}", "", tVal, true},
 
 	// Range.
 	{"range []int", "{{range .SI}}-{{.}}-{{end}}", "-3--4--5-", tVal, true},
@@ -542,6 +556,27 @@ var execTests = []execTest{
 	// Error handling.
 	{"error method, error", "{{.MyError true}}", "", tVal, false},
 	{"error method, no error", "{{.MyError false}}", "false", tVal, true},
+
+	// Numbers
+	{"decimal", "{{print 1234}}", "1234", tVal, true},
+	{"decimal _", "{{print 12_34}}", "1234", tVal, true},
+	{"binary", "{{print 0b101}}", "5", tVal, true},
+	{"binary _", "{{print 0b_1_0_1}}", "5", tVal, true},
+	{"BINARY", "{{print 0B101}}", "5", tVal, true},
+	{"octal0", "{{print 0377}}", "255", tVal, true},
+	{"octal", "{{print 0o377}}", "255", tVal, true},
+	{"octal _", "{{print 0o_3_7_7}}", "255", tVal, true},
+	{"OCTAL", "{{print 0O377}}", "255", tVal, true},
+	{"hex", "{{print 0x123}}", "291", tVal, true},
+	{"hex _", "{{print 0x1_23}}", "291", tVal, true},
+	{"HEX", "{{print 0X123ABC}}", "1194684", tVal, true},
+	{"float", "{{print 123.4}}", "123.4", tVal, true},
+	{"float _", "{{print 0_0_1_2_3.4}}", "123.4", tVal, true},
+	{"hex float", "{{print +0x1.ep+2}}", "7.5", tVal, true},
+	{"hex float _", "{{print +0x_1.e_0p+0_2}}", "7.5", tVal, true},
+	{"HEX float", "{{print +0X1.EP+2}}", "7.5", tVal, true},
+	{"print multi", "{{print 1_2_3_4 7.5_00_00_00}}", "1234 7.5", tVal, true},
+	{"print multi2", "{{print 1234 0x0_1.e_0p+02}}", "1234 7.5", tVal, true},
 
 	// Fixed bugs.
 	// Must separate dot and receiver; otherwise args are evaluated with dot set to variable.
@@ -1328,20 +1363,64 @@ func TestBlock(t *testing.T) {
 	}
 }
 
-// Check that calling an invalid field on nil pointer prints
-// a field error instead of a distracting nil pointer error.
-// https://golang.org/issue/15125
-func TestMissingFieldOnNil(t *testing.T) {
-	tmpl := Must(New("tmpl").Parse("{{.MissingField}}"))
-	var d *T
-	err := tmpl.Execute(ioutil.Discard, d)
-	got := "<nil>"
-	if err != nil {
-		got = err.Error()
+func TestEvalFieldErrors(t *testing.T) {
+	tests := []struct {
+		name, src string
+		value     interface{}
+		want      string
+	}{
+		{
+			// Check that calling an invalid field on nil pointer
+			// prints a field error instead of a distracting nil
+			// pointer error. https://golang.org/issue/15125
+			"MissingFieldOnNil",
+			"{{.MissingField}}",
+			(*T)(nil),
+			"can't evaluate field MissingField in type *template.T",
+		},
+		{
+			"MissingFieldOnNonNil",
+			"{{.MissingField}}",
+			&T{},
+			"can't evaluate field MissingField in type *template.T",
+		},
+		{
+			"ExistingFieldOnNil",
+			"{{.X}}",
+			(*T)(nil),
+			"nil pointer evaluating *template.T.X",
+		},
+		{
+			"MissingKeyOnNilMap",
+			"{{.MissingKey}}",
+			(*map[string]string)(nil),
+			"nil pointer evaluating *map[string]string.MissingKey",
+		},
+		{
+			"MissingKeyOnNilMapPtr",
+			"{{.MissingKey}}",
+			(*map[string]string)(nil),
+			"nil pointer evaluating *map[string]string.MissingKey",
+		},
+		{
+			"MissingKeyOnMapPtrToNil",
+			"{{.MissingKey}}",
+			&map[string]string{},
+			"<nil>",
+		},
 	}
-	want := "can't evaluate field MissingField in type *template.T"
-	if !strings.HasSuffix(got, want) {
-		t.Errorf("got error %q, want %q", got, want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl := Must(New("tmpl").Parse(tc.src))
+			err := tmpl.Execute(ioutil.Discard, tc.value)
+			got := "<nil>"
+			if err != nil {
+				got = err.Error()
+			}
+			if !strings.HasSuffix(got, tc.want) {
+				t.Fatalf("got error %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -1451,5 +1530,105 @@ func TestInterfaceValues(t *testing.T) {
 		if buf.String() != tt.out {
 			t.Errorf("%s: template output = %q, want %q", tt.text, &buf, tt.out)
 		}
+	}
+}
+
+// Check that panics during calls are recovered and returned as errors.
+func TestExecutePanicDuringCall(t *testing.T) {
+	funcs := map[string]interface{}{
+		"doPanic": func() string {
+			panic("custom panic string")
+		},
+	}
+	tests := []struct {
+		name    string
+		input   string
+		data    interface{}
+		wantErr string
+	}{
+		{
+			"direct func call panics",
+			"{{doPanic}}", (*T)(nil),
+			`template: t:1:2: executing "t" at <doPanic>: error calling doPanic: custom panic string`,
+		},
+		{
+			"indirect func call panics",
+			"{{call doPanic}}", (*T)(nil),
+			`template: t:1:7: executing "t" at <doPanic>: error calling doPanic: custom panic string`,
+		},
+		{
+			"direct method call panics",
+			"{{.GetU}}", (*T)(nil),
+			`template: t:1:2: executing "t" at <.GetU>: error calling GetU: runtime error: invalid memory address or nil pointer dereference`,
+		},
+		{
+			"indirect method call panics",
+			"{{call .GetU}}", (*T)(nil),
+			`template: t:1:7: executing "t" at <.GetU>: error calling GetU: runtime error: invalid memory address or nil pointer dereference`,
+		},
+		{
+			"func field call panics",
+			"{{call .PanicFunc}}", tVal,
+			`template: t:1:2: executing "t" at <call .PanicFunc>: error calling call: test panic`,
+		},
+		{
+			"method call on nil interface",
+			"{{.NonEmptyInterfaceNil.Method0}}", tVal,
+			`template: t:1:23: executing "t" at <.NonEmptyInterfaceNil.Method0>: nil pointer evaluating template.I.Method0`,
+		},
+	}
+	for _, tc := range tests {
+		b := new(bytes.Buffer)
+		tmpl, err := New("t").Funcs(funcs).Parse(tc.input)
+		if err != nil {
+			t.Fatalf("parse error: %s", err)
+		}
+		err = tmpl.Execute(b, tc.data)
+		if err == nil {
+			t.Errorf("%s: expected error; got none", tc.name)
+		} else if !strings.Contains(err.Error(), tc.wantErr) {
+			if *debug {
+				fmt.Printf("%s: test execute error: %s\n", tc.name, err)
+			}
+			t.Errorf("%s: expected error:\n%s\ngot:\n%s", tc.name, tc.wantErr, err)
+		}
+	}
+}
+
+// Issue 31810. Check that a parenthesized first argument behaves properly.
+func TestIssue31810(t *testing.T) {
+	// A simple value with no arguments is fine.
+	var b bytes.Buffer
+	const text = "{{ (.)  }}"
+	tmpl, err := New("").Parse(text)
+	if err != nil {
+		t.Error(err)
+	}
+	err = tmpl.Execute(&b, "result")
+	if err != nil {
+		t.Error(err)
+	}
+	if b.String() != "result" {
+		t.Errorf("%s got %q, expected %q", text, b.String(), "result")
+	}
+
+	// Even a plain function fails - need to use call.
+	f := func() string { return "result" }
+	b.Reset()
+	err = tmpl.Execute(&b, f)
+	if err == nil {
+		t.Error("expected error with no call, got none")
+	}
+
+	// Works if the function is explicitly called.
+	const textCall = "{{ (call .)  }}"
+	tmpl, err = New("").Parse(textCall)
+	b.Reset()
+	err = tmpl.Execute(&b, f)
+	if err != nil {
+		t.Error(err)
+	}
+	if b.String() != "result" {
+		t.Errorf("%s got %q, expected %q", textCall, b.String(), "result")
 	}
 }
