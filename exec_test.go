@@ -526,6 +526,9 @@ var execTests = []execTest{
 	{"with $x struct.U.V", "{{with $x := $}}{{$x.U.V}}{{end}}", "v", tVal, true},
 	{"with variable and action", "{{with $x := $}}{{$y := $.U.V}}{{$y}}{{end}}", "v", tVal, true},
 	{"with on typed nil interface value", "{{with .NonEmptyInterfaceTypedNil}}TRUE{{ end }}", "", tVal, true},
+	{"with else if", "{{with false}}FALSE{{else if true}}TRUE{{.SI}}{{end}}", "TRUE[3 4 5]", tVal, true},
+	{"with else chain", "{{with eq 1 3}}1{{else if eq 2 3}}2{{else if eq 3 3}}3{{end}}", "3", tVal, true},
+	{"with else chain with dot modified", "{{with eq 1 1}}{{.}}{{else if eq 2 3}}2{{else if eq 3 3}}3{{end}}", "true", tVal, true},
 
 	// Range.
 	{"range []int", "{{range .SI}}-{{.}}-{{end}}", "-3--4--5-", tVal, true},
