@@ -131,6 +131,13 @@ data, defined in detail in the corresponding sections that follow.
 		If executing T1 resulted in an error being returned from a function call,
 		T0 is executed with the dot set to the error.
 
+	{{return}}
+		Stop execution of the current template.
+
+	{{return pipeline}}
+		Stop execution of the current template and return the result of evaluating
+		the pipeline to the caller.
+
 	{{template "name"}}
 		The template with the specified name is executed with nil data.
 
@@ -375,6 +382,10 @@ Predefined global functions are named as follows.
 		its arguments in a form suitable for embedding in a URL query.
 		This function is unavailable in html/template, with a few
 		exceptions.
+	execTemplate
+		Executes the associated template with the given name using the
+		data provided, returning the return value of the template, otherwise
+		nil.
 
 The boolean functions take any zero value to be false and a non-zero
 value to be true.

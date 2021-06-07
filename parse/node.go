@@ -68,6 +68,7 @@ const (
 	NodeNumber                     // A numerical constant.
 	NodePipe                       // A pipeline of commands.
 	NodeRange                      // A range action.
+	NodeReturn                     // A return action.
 	NodeString                     // A string constant.
 	NodeTry                        // A try action.
 	NodeTemplate                   // A template invocation action.
@@ -933,6 +934,33 @@ func (c *ContinueNode) Copy() Node {
 
 func (c *ContinueNode) tree() *Tree {
 	return c.tr
+}
+
+// ReturnNode represents a {{return}} action and its commands.
+type ReturnNode struct {
+	NodeType
+	Pos
+	tr   *Tree
+	Pipe *PipeNode // The command to evaluate as return value for the template.
+}
+
+func (t *Tree) newReturn(pos Pos, pipe *PipeNode) *ReturnNode {
+	return &ReturnNode{tr: t, NodeType: NodeReturn, Pos: pos, Pipe: pipe}
+}
+
+func (r *ReturnNode) String() string {
+	if r.Pipe != nil {
+		return fmt.Sprintf("{{return %s}}", r.Pipe)
+	}
+	return "{{return}}"
+}
+
+func (r *ReturnNode) tree() *Tree {
+	return r.tr
+}
+
+func (r *ReturnNode) Copy() Node {
+	return r.tr.newReturn(r.Pos, r.Pipe.CopyPipe())
 }
 
 // TemplateNode represents a {{template}} action.
