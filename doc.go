@@ -111,6 +111,14 @@ data, defined in detail in the corresponding sections that follow.
 		T0 is executed; otherwise, dot is set to the successive elements
 		of the array, slice, or map and T1 is executed.
 
+	{{while pipeline}} T1 {{end}}
+		Execute T1 while the value of the pipeline is not empty. Dot is
+		unaffected.
+
+	{{while pipeline}} T1 {{else}} T0 {{end}}
+		Execute T1 while the value of the pipeline is not empty. If the initial
+		value of the pipeline was empty, evaluate T0. Dot is unaffected.
+
 	{{template "name"}}
 		The template with the specified name is executed with nil data.
 
