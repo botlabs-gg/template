@@ -70,6 +70,7 @@ const (
 	itemRange    // range keyword
 	itemTemplate // template keyword
 	itemWith     // with keyword
+	itemWhile    // while keyword
 )
 
 var key = map[string]itemType{
@@ -83,6 +84,7 @@ var key = map[string]itemType{
 	"nil":      itemNil,
 	"template": itemTemplate,
 	"with":     itemWith,
+	"while":    itemWhile,
 }
 
 const eof = -1

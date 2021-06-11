@@ -230,6 +230,12 @@ var parseTests = []parseTest{
 		`{{range $x := .SI}}{{.}}{{end}}`},
 	{"range 2 vars", "{{range $x, $y := .SI}}{{.}}{{end}}", noError,
 		`{{range $x, $y := .SI}}{{.}}{{end}}`},
+	{"simple while", "{{$i := 0}}{{while lt $i 5}}hello{{$i := add $i 1}}{{end}}", noError,
+		`{{$i := 0}}{{while lt $i 5}}"hello"{{$i := add $i 1}}{{end}}`},
+	{"while declaration", "{{$i := 0}}{{while $truth := lt $i 5}}hello{{$i := add $i 1}}{{end}}", noError,
+		`{{$i := 0}}{{while $truth := lt $i 5}}"hello"{{$i := add $i 1}}{{end}}`},
+	{"while with else", "{{while true}}hello{{else}}goodbye{{end}}", noError,
+		`{{while true}}"hello"{{else}}"goodbye"{{end}}`},
 	{"constants", "{{range .SI 1 -3.2i true false 'a' nil}}{{end}}", noError,
 		`{{range .SI 1 -3.2i true false 'a' nil}}{{end}}`},
 	{"template", "{{template `x`}}", noError,
@@ -304,6 +310,8 @@ var parseTests = []parseTest{
 
 var builtins = map[string]interface{}{
 	"printf": fmt.Sprintf,
+	"add":    func(a, b int) int { return a + b },
+	"lt":     func(a, b int) bool { return a < b },
 }
 
 func testParse(doCopy bool, t *testing.T) {

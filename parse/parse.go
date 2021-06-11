@@ -259,6 +259,7 @@ func IsEmptyTree(n Node) bool {
 			}
 		}
 		return true
+	case *WhileNode:
 	case *RangeNode:
 	case *TemplateNode:
 	case *TextNode:
@@ -370,6 +371,8 @@ func (t *Tree) action() (n Node) {
 		return t.templateControl()
 	case itemWith:
 		return t.withControl()
+	case itemWhile:
+		return t.whileControl()
 	}
 	t.backup()
 	token := t.peek()
@@ -514,6 +517,14 @@ func (t *Tree) rangeControl() Node {
 // If keyword is past.
 func (t *Tree) withControl() Node {
 	return t.newWith(t.parseControl(false, "with"))
+}
+
+// While:
+// 	{{while pipeline}} itemList {{end}}
+// 	{{while pipeline}} itemList {{else}} itemList {{end}}
+// While keyword is past.
+func (t *Tree) whileControl() Node {
+	return t.newWhile(t.parseControl(false, "while"))
 }
 
 // End:
