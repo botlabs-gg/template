@@ -516,7 +516,7 @@ func (t *Tree) rangeControl() Node {
 //	{{with pipeline}} itemList {{else}} itemList {{end}}
 // If keyword is past.
 func (t *Tree) withControl() Node {
-	return t.newWith(t.parseControl(false, "with"))
+	return t.newWith(t.parseControl(true, "with"))
 }
 
 // While:
