@@ -286,8 +286,8 @@ func (s *state) walk(dot reflect.Value, node parse.Node) {
 // are identical in behavior except that 'with' sets dot.
 func (s *state) walkIfOrWith(typ parse.NodeType, dot reflect.Value, pipe *parse.PipeNode, list, elseList *parse.ListNode) {
 	defer s.pop(s.mark())
-	val := s.evalPipeline(dot, pipe)
-	truth, ok := isTrue(indirectInterface(val))
+	val, _ := indirect(s.evalPipeline(dot, pipe))
+	truth, ok := isTrue(val)
 	if !ok {
 		s.errorf("if/with can't use %v", val)
 	}
