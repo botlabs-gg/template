@@ -779,13 +779,13 @@ func (s *state) evalCall(dot, fun reflect.Value, node parse.Node, name string, a
 		}
 		argv[i] = s.validateType(final, t)
 	}
-	v, err, didPanic := safeCall(fun, argv)
+	v, panicked, err := safeCall(fun, argv)
 	// If we have an error that is not nil, stop execution and return that
 	// error to the caller.
 	if err != nil {
 		// If the call panicked instead of returning a normal error, or if we are not in a try action,
 		// stop execution and report the error.
-		if didPanic || s.tryDepth == 0 {
+		if panicked || s.tryDepth == 0 {
 			s.at(node)
 			s.errorf("error calling %s: %v", name, err)
 		}
