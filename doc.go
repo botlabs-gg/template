@@ -119,6 +119,10 @@ data, defined in detail in the corresponding sections that follow.
 		Execute T1 while the value of the pipeline is not empty. If the initial
 		value of the pipeline was empty, evaluate T0. Dot is unaffected.
 
+	{{try}} T1 {{catch}} T0 {{end}}
+		If executing T1 resulted in an error being returned from a function call,
+		T0 is executed with the dot set to the error.
+
 	{{template "name"}}
 		The template with the specified name is executed with nil data.
 
