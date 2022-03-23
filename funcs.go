@@ -321,7 +321,8 @@ func safeCall(fun reflect.Value, args []reflect.Value) (val reflect.Value, panic
 // Boolean logic.
 
 func truth(arg reflect.Value) bool {
-	t, _ := isTrue(indirectInterface(arg))
+	arg, _ = indirect(arg)
+	t, _ := isTrue(arg)
 	return t
 }
 
