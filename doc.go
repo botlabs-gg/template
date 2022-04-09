@@ -119,9 +119,24 @@ data, defined in detail in the corresponding sections that follow.
 		Execute T1 while the value of the pipeline is not empty. If the initial
 		value of the pipeline was empty, evaluate T0. Dot is unaffected.
 
+	{{break}}
+		The innermost {{range pipeline}} or {{while pipeline}} loop is ended early,
+		stopping the current iteration and bypassing all remaining iterations.
+
+	{{continue}}
+		The current iteration of the innermost {{range pipeline}} or {{while pipeline}}
+		loop is stopped, and the loop starts the next iteration.
+
 	{{try}} T1 {{catch}} T0 {{end}}
 		If executing T1 resulted in an error being returned from a function call,
 		T0 is executed with the dot set to the error.
+
+	{{return}}
+		Stop execution of the current template.
+
+	{{return pipeline}}
+		Stop execution of the current template and return the result of evaluating
+		the pipeline to the caller.
 
 	{{template "name"}}
 		The template with the specified name is executed with nil data.
@@ -367,6 +382,10 @@ Predefined global functions are named as follows.
 		its arguments in a form suitable for embedding in a URL query.
 		This function is unavailable in html/template, with a few
 		exceptions.
+	execTemplate
+		Executes the associated template with the given name using the
+		data provided, returning the return value of the template, otherwise
+		nil.
 
 The boolean functions take any zero value to be false and a non-zero
 value to be true.

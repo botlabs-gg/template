@@ -30,24 +30,27 @@ import (
 // type can return interface{} or reflect.Value.
 type FuncMap map[string]interface{}
 
+var builtinExecTemplate = reflect.ValueOf(execTemplate)
+
 // builtins returns the FuncMap.
 // It is not a global variable so the linker can dead code eliminate
 // more when this isn't called. See golang.org/issue/36021.
 // TODO: revert this back to a global map once golang.org/issue/2559 is fixed.
 func builtins() FuncMap {
 	return FuncMap{
-		"and":      and,
-		"call":     call,
-		"html":     HTMLEscaper,
-		"index":    index,
-		"js":       JSEscaper,
-		"len":      length,
-		"not":      not,
-		"or":       or,
-		"print":    fmt.Sprint,
-		"printf":   fmt.Sprintf,
-		"println":  fmt.Sprintln,
-		"urlquery": URLQueryEscaper,
+		"and":          and,
+		"call":         call,
+		"execTemplate": execTemplate,
+		"html":         HTMLEscaper,
+		"index":        index,
+		"js":           JSEscaper,
+		"len":          length,
+		"not":          not,
+		"or":           or,
+		"print":        fmt.Sprint,
+		"printf":       fmt.Sprintf,
+		"println":      fmt.Sprintln,
+		"urlquery":     URLQueryEscaper,
 
 		// Comparisons
 		"eq": eq, // ==
@@ -248,6 +251,14 @@ func length(item interface{}) (int, error) {
 		return v.Len(), nil
 	}
 	return 0, fmt.Errorf("len of type %s", v.Type())
+}
+
+// Template invocation
+
+// execTemplate executes the associated template with the given name and data
+// and returns its return value.
+func execTemplate(name string, data ...reflect.Value) reflect.Value {
+	panic("unreachable") // implemented as a special case in evalCall
 }
 
 // Function invocation

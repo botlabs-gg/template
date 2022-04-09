@@ -52,9 +52,11 @@ const (
 	NodeText       NodeType = iota // Plain text.
 	NodeAction                     // A non-control action such as a field evaluation.
 	NodeBool                       // A boolean constant.
+	NodeBreak                      // A break action.
 	NodeChain                      // A sequence of field accesses.
 	NodeCommand                    // An element of a pipeline.
 	nodeCatch                      // A catch action. Not added to tree.
+	NodeContinue                   // A continue action.
 	NodeDot                        // The cursor, dot.
 	nodeElse                       // An else action. Not added to tree.
 	nodeEnd                        // An end action. Not added to tree.
@@ -66,6 +68,7 @@ const (
 	NodeNumber                     // A numerical constant.
 	NodePipe                       // A pipeline of commands.
 	NodeRange                      // A range action.
+	NodeReturn                     // A return action.
 	NodeString                     // A string constant.
 	NodeTry                        // A try action.
 	NodeTemplate                   // A template invocation action.
@@ -831,33 +834,6 @@ func (w *WhileNode) Copy() Node {
 	return w.tr.newWhile(w.Pos, w.Line, w.Pipe.CopyPipe(), w.List.CopyList(), w.ElseList.CopyList())
 }
 
-// CatchNode represents a {{catch}} action. Does not appear in the final tree.
-type catchNode struct {
-	NodeType
-	Pos
-	tr *Tree
-}
-
-func (t *Tree) newCatch(pos Pos) *catchNode {
-	return &catchNode{tr: t, NodeType: nodeCatch, Pos: pos}
-}
-
-func (c *catchNode) Type() NodeType {
-	return nodeCatch
-}
-
-func (c *catchNode) String() string {
-	return "{{catch}}"
-}
-
-func (c *catchNode) tree() *Tree {
-	return c.tr
-}
-
-func (c *catchNode) Copy() Node {
-	return c.tr.newCatch(c.Pos)
-}
-
 // TryNode represents a {{try}} action and its commands.
 type TryNode struct {
 	NodeType
@@ -885,6 +861,106 @@ func (t *TryNode) tree() *Tree {
 
 func (t *TryNode) Copy() Node {
 	return t.tr.newTry(t.Pos, t.List.CopyList(), t.CatchList.CopyList())
+}
+
+// CatchNode represents a {{catch}} action. Does not appear in the final tree.
+type catchNode struct {
+	NodeType
+	Pos
+	tr *Tree
+}
+
+func (t *Tree) newCatch(pos Pos) *catchNode {
+	return &catchNode{tr: t, NodeType: nodeCatch, Pos: pos}
+}
+
+func (c *catchNode) Type() NodeType {
+	return nodeCatch
+}
+
+func (c *catchNode) String() string {
+	return "{{catch}}"
+}
+
+func (c *catchNode) tree() *Tree {
+	return c.tr
+}
+
+func (c *catchNode) Copy() Node {
+	return c.tr.newCatch(c.Pos)
+}
+
+// BreakNode represents a {{break}} action.
+type BreakNode struct {
+	NodeType
+	Pos
+	tr *Tree
+}
+
+func (t *Tree) newBreak(pos Pos) *BreakNode {
+	return &BreakNode{NodeType: NodeBreak, Pos: pos, tr: t}
+}
+
+func (b *BreakNode) String() string {
+	return "{{break}}"
+}
+
+func (b *BreakNode) Copy() Node {
+	return b.tr.newBreak(b.Pos)
+}
+
+func (b *BreakNode) tree() *Tree {
+	return b.tr
+}
+
+// ContinueNode represents a {{continue}} action.
+type ContinueNode struct {
+	NodeType
+	Pos
+	tr *Tree
+}
+
+func (t *Tree) newContinue(pos Pos) *ContinueNode {
+	return &ContinueNode{NodeType: NodeContinue, Pos: pos, tr: t}
+}
+
+func (c *ContinueNode) String() string {
+	return "{{continue}}"
+}
+
+func (c *ContinueNode) Copy() Node {
+	return c.tr.newContinue(c.Pos)
+}
+
+func (c *ContinueNode) tree() *Tree {
+	return c.tr
+}
+
+// ReturnNode represents a {{return}} action and its commands.
+type ReturnNode struct {
+	NodeType
+	Pos
+	tr   *Tree
+	Pipe *PipeNode // The command to evaluate as return value for the template.
+}
+
+func (t *Tree) newReturn(pos Pos, pipe *PipeNode) *ReturnNode {
+	return &ReturnNode{tr: t, NodeType: NodeReturn, Pos: pos, Pipe: pipe}
+}
+
+func (r *ReturnNode) String() string {
+	if r.Pipe != nil {
+		return fmt.Sprintf("{{return %s}}", r.Pipe)
+	}
+	return "{{return}}"
+}
+
+func (r *ReturnNode) tree() *Tree {
+	return r.tr
+}
+
+func (r *ReturnNode) Copy() Node {
+	return r.tr.newReturn(r.Pos, r.Pipe.CopyPipe())
 }
 
 // TemplateNode represents a {{template}} action.

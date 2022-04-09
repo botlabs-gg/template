@@ -524,6 +524,17 @@ var execTests = []execTest{
 	{"len of int", "{{len 3}}", "", tVal, false},
 	{"len of nothing", "{{len .Empty0}}", "", tVal, false},
 
+	// ExecTemplate.
+	{"no return value", `{{define "f"}}hi{{end}}{{execTemplate "f"}}`, "hi<no value>", tVal, true},
+	{"return value", `{{define "f"}}{{return 1}}{{end}}{{execTemplate "f"}}`, "1", tVal, true},
+	{"use return value", `{{define "f"}}{{return 1}}{{end}}{{add (execTemplate "f") 1}}`, "2", tVal, true},
+	{"pass data and return back", `{{define "add1"}}{{return add . 1}}{{end}}{{execTemplate "add1" 1}}`, "2", tVal, true},
+	{"pass and use data", `{{define "sayMessage"}}text/template said: {{.}}{{end}}{{$s := execTemplate "sayMessage" "hello world"}}`, "text/template said: hello world", tVal, true},
+	{"recursive factorial", `{{define "fac"}}{{if eq . 0}}{{return 1}}{{end}}{{return (mult . (execTemplate "fac" (add . -1)))}}{{end}}{{execTemplate "fac" 5}}`, "120", tVal, true},
+	{"pass name using pipeline", `{{define "hh"}}hi{{end}}{{$s := "hh" | execTemplate}}`, "hi", tVal, true},
+	{"pass data using pipeline", `{{define "vv"}}{{.}}{{end}}{{$s := 1 | execTemplate "vv"}}`, "1", tVal, true},
+	{"no args passed", `{{define "xx"}}{{end}}{{execTemplate}}`, "", tVal, false},
+
 	// With.
 	{"with true", "{{with true}}{{.}}{{end}}", "true", tVal, true},
 	{"with false", "{{with false}}{{.}}{{else}}FALSE{{end}}", "FALSE", tVal, true},
@@ -553,6 +564,8 @@ var execTests = []execTest{
 	{"range empty no else", "{{range .SIEmpty}}-{{.}}-{{end}}", "", tVal, true},
 	{"range []int else", "{{range .SI}}-{{.}}-{{else}}EMPTY{{end}}", "-3--4--5-", tVal, true},
 	{"range empty else", "{{range .SIEmpty}}-{{.}}-{{else}}EMPTY{{end}}", "EMPTY", tVal, true},
+	{"range []int break else", "{{range .SI}}-{{.}}-{{break}}NOTREACHED{{else}}EMPTY{{end}}", "-3-", tVal, true},
+	{"range []int continue else", "{{range .SI}}-{{.}}-{{continue}}NOTREACHED{{else}}EMPTY{{end}}", "-3--4--5-", tVal, true},
 	{"range []bool", "{{range .SB}}-{{.}}-{{end}}", "-true--false-", tVal, true},
 	{"range []int method", "{{range .SI | .MAdd .I}}-{{.}}-{{end}}", "-20--21--22-", tVal, true},
 	{"range map", "{{range .MSI}}-{{.}}-{{end}}", "-1--3--2-", tVal, true},
@@ -572,10 +585,19 @@ var execTests = []execTest{
 
 	// While.
 	{"while increment", "{{$i := 0}}{{while lt $i 5}}<{{$i}}>{{$i = add $i 1}}{{end}}", "<0><1><2><3><4>", tVal, true},
+	{"while increment break else", "{{$i := 0}}{{while lt $i 5}}-{{$i}}-{{break}}NOTREACHED{{else}}EMPTY{{end}}", "-0-", tVal, true},
+	{"while increment continue else", "{{$i := 0}}{{while lt $i 5}}-{{$i}}-{{$i = add $i 1}}{{continue}}NOTREACHED{{else}}EMPTY{{end}}", "-0--1--2--3--4-", tVal, true},
 	{"while with declaration", "{{$i := -5}}{{while $truth := lt $i 0}}{{$truth}}{{$i = add $i 1}}{{end}}", "truetruetruetruetrue", tVal, true},
 	{"while empty value", "{{while false}}NOTEXECUTED{{end}}AFTER", "AFTER", tVal, true},
 	{"while empty value with else", "{{while false}}NOTEXECUTED{{else}}ELSELIST{{end}}AFTER", "ELSELISTAFTER", tVal, true},
 	{"while infinite loop", "{{while true}}{{end}}", "", tVal, false},
+
+	// Return.
+	{"return top level", `12{{return}}23`, "12", tVal, true},
+	{"return in nested template", `{{define "tmpl"}}12{{return}}34{{end}}{{template "tmpl"}}45`, "1245", tVal, true},
+	{"return in range", `{{range .SI}}{{return}}23{{end}}34`, "", tVal, true},
+	{"return in if", `{{if true}}{{return}}{{end}}12`, "", tVal, true},
+	{"return with value", `12{{return 34}}45`, "12", tVal, true},
 
 	// Cute examples.
 	{"or as if true", `{{or .SI "slice is empty"}}`, "[3 4 5]", tVal, true},
@@ -725,6 +747,14 @@ func add(args ...int) int {
 	return sum
 }
 
+func mult(args ...int) int {
+	res := 1
+	for _, x := range args {
+		res *= x
+	}
+	return res
+}
+
 func echo(arg interface{}) interface{} {
 	return arg
 }
@@ -751,6 +781,7 @@ func mapOfThree() interface{} {
 func testExecute(execTests []execTest, template *Template, t *testing.T) {
 	b := new(bytes.Buffer)
 	funcs := FuncMap{
+		"mult":        mult,
 		"add":         add,
 		"count":       count,
 		"dddArg":      dddArg,
@@ -1454,6 +1485,19 @@ func TestEvalFieldErrors(t *testing.T) {
 
 func TestMaxExecDepth(t *testing.T) {
 	tmpl := Must(New("tmpl").Parse(`{{template "tmpl" .}}`))
+	err := tmpl.Execute(ioutil.Discard, nil)
+	got := "<nil>"
+	if err != nil {
+		got = err.Error()
+	}
+	const want = "exceeded maximum template depth"
+	if !strings.Contains(got, want) {
+		t.Errorf("got error %q; want %q", got, want)
+	}
+}
+
+func TestMaxExecTemplateDepth(t *testing.T) {
+	tmpl := Must(New("tmpl").Parse(`{{execTemplate "tmpl" .}}`))
 	err := tmpl.Execute(ioutil.Discard, nil)
 	got := "<nil>"
 	if err != nil {

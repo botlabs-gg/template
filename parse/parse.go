@@ -29,6 +29,7 @@ type Tree struct {
 	peekCount int
 	vars      []string // variables defined at the moment.
 	treeSet   map[string]*Tree
+	loopDepth int
 }
 
 // Copy returns a copy of the Tree. Any parsing state is discarded.
@@ -265,6 +266,9 @@ func IsEmptyTree(n Node) bool {
 	case *TryNode:
 	case *TextNode:
 		return len(bytes.TrimSpace(n.Text)) == 0
+	case *BreakNode:
+	case *ContinueNode:
+	case *ReturnNode:
 	case *WithNode:
 	default:
 		panic("unknown node: " + n.String())
@@ -358,10 +362,14 @@ func (t *Tree) textOrAction() Node {
 // First word could be a keyword such as range.
 func (t *Tree) action() (n Node) {
 	switch token := t.nextNonSpace(); token.typ {
+	case itemBreak:
+		return t.breakControl()
 	case itemBlock:
 		return t.blockControl()
 	case itemCatch:
 		return t.catchControl()
+	case itemContinue:
+		return t.continueControl()
 	case itemElse:
 		return t.elseControl()
 	case itemEnd:
@@ -370,6 +378,8 @@ func (t *Tree) action() (n Node) {
 		return t.ifControl()
 	case itemRange:
 		return t.rangeControl()
+	case itemReturn:
+		return t.returnControl()
 	case itemTemplate:
 		return t.templateControl()
 	case itemTry:
@@ -471,7 +481,13 @@ func (t *Tree) parseControl(allowElseIf bool, context string) (pos Pos, line int
 	defer t.popVars(len(t.vars))
 	pipe = t.pipeline(context)
 	var next Node
+	if context == "range" || context == "while" {
+		t.loopDepth++
+	}
 	list, next = t.itemList()
+	if context == "range" || context == "while" {
+		t.loopDepth--
+	}
 	switch next.Type() {
 	case nodeEnd: //done
 	case nodeElse:
@@ -518,6 +534,20 @@ func (t *Tree) rangeControl() Node {
 	return t.newRange(t.parseControl(false, "range"))
 }
 
+// Return:
+// 	{{return pipeline}}
+// Return keyword is past.
+func (t *Tree) returnControl() Node {
+	const context = "return clause"
+	token := t.nextNonSpace()
+	var pipe *PipeNode
+	if token.typ != itemRightDelim {
+		t.backup()
+		pipe = t.pipeline(context)
+	}
+	return t.newReturn(token.pos, pipe)
+}
+
 // With:
 //	{{with pipeline}} itemList {{end}}
 //	{{with pipeline}} itemList {{else}} itemList {{end}}
@@ -553,6 +583,16 @@ func (t *Tree) elseControl() Node {
 	}
 	token := t.expect(itemRightDelim, "else")
 	return t.newElse(token.pos, token.line)
+}
+
+// Break:
+// 	{{break}}
+// Break keyword is past.
+func (t *Tree) breakControl() Node {
+	if t.loopDepth == 0 {
+		t.errorf("unexpected break outside of loop")
+	}
+	return t.newBreak(t.expect(itemRightDelim, "break").pos)
 }
 
 // Block:
@@ -608,6 +648,16 @@ func (t *Tree) tryControl() Node {
 	}
 
 	return t.newTry(token.pos, list, catchList)
+}
+
+// Continue
+// 	{{continue}}
+// Continue keyword is past.
+func (t *Tree) continueControl() Node {
+	if t.loopDepth == 0 {
+		t.errorf("unexpected continue outside of range")
+	}
+	return t.newContinue(t.expect(itemRightDelim, "continue").pos)
 }
 
 // Template:
