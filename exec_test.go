@@ -457,8 +457,10 @@ var execTests = []execTest{
 	{"error in catch", "{{try}}{{.MyError true}}{{catch}}{{$.MyError true}}{{end}}", "", tVal, false},
 	{"try catch use error", "{{try}}{{.MyError true}}{{catch}}{{.}}{{end}}", "my error", tVal, true},
 	{"nested try catch", "{{try}}{{.MyError true}}{{catch}}{{try}}{{$.MyError true}}{{catch}}abc{{end}}{{end}}", "abc", tVal, true},
-	// should not catch panics.
-	{"try catch with panic", "{{try}}{{makemap 1}}{{catch}}x{{end}}", "", tVal, false},
+	{"try catch with panic", "{{try}}{{makemap 1}}{{catch}}x{{end}}", "", tVal, false}, // shouldn't catch panics
+	{"strips error fields", "{{try}}{{returnError}}{{catch}}{{.X}}{{end}}", "", tVal, false},
+	{"keeps original error message", "{{try}}{{returnError}}{{catch}}{{.Error}}{{end}}", "bye", tVal, true},
+	{"does not strip errors wrapped using PassthroughError", "{{try}}{{returnPassthroughError}}{{catch}}{{.X}}{{end}}", "1", tVal, true},
 
 	// Print etc.
 	{"print", `{{print "hello, print"}}`, "hello, print", tVal, true},
@@ -778,24 +780,43 @@ func mapOfThree() interface{} {
 	return map[string]int{"three": 3}
 }
 
+type customError struct {
+	X int
+	Y string
+}
+
+func (c customError) Error() string {
+	return c.Y
+}
+
+func returnPassthroughError() (string, error) {
+	return "", PassthroughError(customError{1, "hi"})
+}
+
+func returnError() (string, error) {
+	return "", customError{1, "bye"}
+}
+
 func testExecute(execTests []execTest, template *Template, t *testing.T) {
 	b := new(bytes.Buffer)
 	funcs := FuncMap{
-		"mult":        mult,
-		"add":         add,
-		"count":       count,
-		"dddArg":      dddArg,
-		"echo":        echo,
-		"makemap":     makemap,
-		"mapOfThree":  mapOfThree,
-		"oneArg":      oneArg,
-		"returnInt":   returnInt,
-		"stringer":    stringer,
-		"twoArgs":     twoArgs,
-		"typeOf":      typeOf,
-		"valueString": valueString,
-		"vfunc":       vfunc,
-		"zeroArgs":    zeroArgs,
+		"mult":                   mult,
+		"add":                    add,
+		"count":                  count,
+		"dddArg":                 dddArg,
+		"echo":                   echo,
+		"makemap":                makemap,
+		"mapOfThree":             mapOfThree,
+		"oneArg":                 oneArg,
+		"returnInt":              returnInt,
+		"stringer":               stringer,
+		"twoArgs":                twoArgs,
+		"typeOf":                 typeOf,
+		"valueString":            valueString,
+		"vfunc":                  vfunc,
+		"zeroArgs":               zeroArgs,
+		"returnPassthroughError": returnPassthroughError,
+		"returnError":            returnError,
 	}
 	for _, test := range execTests {
 		var tmpl *Template
@@ -1664,6 +1685,14 @@ func TestExecutePanicDuringCall(t *testing.T) {
 			}
 			t.Errorf("%s: expected error:\n%s\ngot:\n%s", tc.name, tc.wantErr, err)
 		}
+	}
+}
+
+func TestPassthroughError(t *testing.T) {
+	const msg = "msg"
+	err := PassthroughError(errors.New(msg))
+	if err.Error() != msg {
+		t.Fatalf("err.Error() = %q, want %q", err.Error(), msg)
 	}
 }
 
