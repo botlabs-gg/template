@@ -6,6 +6,7 @@ package template
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -131,6 +132,11 @@ func (e ExecError) Error() string {
 // try action resulted in an error being returned from a function call.
 type FuncCallError struct {
 	Err error
+}
+
+//strips down all the extra information and just sets error message
+func (f *FuncCallError) strip() error {
+	return errors.New(f.Err.Error())
 }
 
 // errorf records an ExecError and terminates processing.
@@ -321,7 +327,7 @@ func (s *state) walkTry(dot reflect.Value, list, catchList *parse.ListNode) {
 		if r := recover(); r != nil {
 			switch err := r.(type) {
 			case FuncCallError:
-				s.walk(reflect.ValueOf(err.Err.Error()), catchList)
+				s.walk(reflect.ValueOf(err.strip()), catchList)
 			default:
 				panic(err)
 			}
