@@ -134,8 +134,8 @@ func PassthroughError(err error) error {
 	return passthroughError{err}
 }
 
-// passthroughError is a wrapper type that indicates to that the wrapped error
-// should not be stripped of additional information if handled by a try action.
+// passthroughError is a wrapper type indicating that the wrapped error should
+// not be stripped of additional information if handled by a try action.
 type passthroughError struct {
 	Err error
 }
